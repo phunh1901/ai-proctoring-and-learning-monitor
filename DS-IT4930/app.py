@@ -1,117 +1,134 @@
-import matplotlib.pyplot as plt
-import pandas as pd
 import streamlit as st
 import os
-import numpy as np
-import cv2
 import sys
+import cv2
+import numpy as np
+import time
+from datetime import datetime
 
-
-# Đường dẫn
+# SETUP 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = current_dir
+face_data_dir = os.path.join(current_dir, "ai_modules", "face_verification", "data")
 
-face_data_dir = os.path.join(project_root, "ai_modules", "face_verification", "data")
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-# Import model
 from ai_modules.face_verification.Face_Recognition import FaceRecog
+from ai_modules.head_pose_estimation.HPE import HeadPoseDetector
+
+st.set_page_config(page_title="Student System", layout="wide")
+st.title("Hệ thống Giám sát Thi trực tuyến")
+
+#SESSION
+ss = st.session_state
+ss.setdefault("exam_verified", False)
+ss.setdefault("exam_started", False)
+ss.setdefault("student_info", None)
+ss.setdefault("violations", [])
+
 face_recog = FaceRecog(data_dir=face_data_dir)
 
-st.title("Giám Sát Thi Cử")
+@st.cache_resource
+def load_pose():
+    return HeadPoseDetector(log_file="exam_pose_log.csv")
 
-# Session state
-if "verified" not in st.session_state:
-    st.session_state.verified = False
+# MENU 
+mode = st.sidebar.radio("Menu", ["Xác thực", "Thi", "Admin"])
 
-if "exam_started" not in st.session_state:
-    st.session_state.exam_started = False
+# Xác thực
+if mode == "Xác thực":
+    st.header("Xác thực danh tính")
 
-if "need_re_register" not in st.session_state:
-    st.session_state.need_re_register = False
+    if not ss.exam_verified:
+        img = st.camera_input("Chụp ảnh")
+        if img:
+            frame = cv2.imdecode(np.frombuffer(img.getvalue(), np.uint8), cv2.IMREAD_COLOR)
 
-# Sidebar
-menu = st.sidebar.radio("Chọn chế độ:", ["Xác thực", "Đăng ký lại dữ liệu"])
+            with st.spinner("Đang đối soát..."):
+                result = face_recog.verify_from_frame(frame, threshold=50)
 
-# Bắt buộc xác thực
-if menu == "Xác thực":
-    if not st.session_state.verified:
-        st.subheader("Step 1: Xác thực khuôn mặt sinh viên")
-
-        img = st.camera_input("Chụp ảnh để xác thực")
-
-        if img is not None:
-            file_bytes = np.frombuffer(img.getvalue(), np.uint8)
-            frame = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-
-            result = face_recog.verify_from_frame(frame)
-            if result is None:
-                st.error("Không phát hiện được khuôn mặt. Chụp rõ hơn.")
+            if result and result["match"]:
+                ss.exam_verified = True
+                ss.student_info = result
+                st.success(f"Đúng sinh viên: {result['name']}")
             else:
-                if result["match"]:
-                    st.success("XÁC THỰC THÀNH CÔNG!")
-
-                    st.write("Thông tin sinh viên:")
-                    st.write(f"Họ tên: {result.get('name', 'Không có dữ liệu')}")
-                    st.write(f"MSSV: {result.get('student_id', 'Không có dữ liệu')}")
-
-                    st.session_state.verified = True
-                else:
-                    st.error("Không trùng khớp với dữ liệu hệ thống.")
-
-                    st.warning("Có thể dữ liệu trước đó bị lỗi hoặc không đúng.")
-                    st.info("Liên hệ giám thị để đăng ký lại dữ liệu khuôn mặt.")
-
-                    st.session_state.need_re_register = True
-
-                    if st.button("Yêu cầu đăng ký lại dữ liệu"):
-                        st.switch_page("app.py")
-
-    # kết thúc xác thực vào thi
-    elif not st.session_state.exam_started:
-        st.subheader("Step 2: Vào làm bài thi")
-
-        if st.button("Vào làm bài"):
-            st.session_state.exam_started = True
-
+                st.error("Không khớp sinh viên!")
     else:
-        st.success("Trong bài thi!")
-        st.write("... Giao diện bài thi ...")
+        st.success(f"Đã xác thực: {ss.student_info['name']}")
+        if st.button("Vào phòng thi"):
+            ss.exam_started = True
+            st.rerun()
+# Exam
+elif mode == "Thi":
+    if not ss.exam_verified:
+        st.warning("Vui lòng xác thực trước!")
+    elif not ss.exam_started:
+        st.info("Nhấn Vào phòng thi ở mục Xác thực")
+    else:
+        col1, col2 = st.columns([3,1])
+        frame_view = col1.empty()
+        warn_text = col1.empty()
+
+        col2.subheader("Giám sát")
+        vio_box = col2.empty()
+        pose_box = col2.empty()
+
+        if col2.button("Nộp bài"):
+            ss.exam_started = False
+            st.rerun()
+
+        pose = load_pose()
+        cam = cv2.VideoCapture(0)
+        cam.set(3, 640)
+        cam.set(4, 480)
+
+        while ss.exam_started:
+            ret, frame = cam.read()
+            if not ret:
+                break
+
+            frame = cv2.flip(frame, 1)
+
+            frame, data = pose.get_pose(frame)
+
+            status = data["text"]
+            angles = data["angles"]
+            violation_count = data["violation_count"] 
+
+            # UI
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame_view.image(frame_rgb, channels="RGB")
+
+            pose_box.info(
+                f"**Hướng:** {status}\n"
+                f"**X:** {angles[0]:.1f} | **Y:** {angles[1]:.1f}"
+            )
+
+            vio_box.error(f"Số lần vi phạm: {violation_count}")
+
+            if violation_count >= 5:
+                warn_text.warning("Cảnh báo: Bạn đang quay đầu quá nhiều!")
+
+        cam.release()
 
 
-# Đăng ký khuôn mặt
-elif menu == "Đăng ký lại dữ liệu":
-    st.header("Đăng ký lại dữ liệu khuôn mặt (Dành cho Giám thị)")
+#  ADMIN 
+elif mode == "Admin":
+    st.header("Đăng ký sinh viên")
 
-    img1 = st.file_uploader("Ảnh 1:", type=["jpg", "jpeg", "png"], key="img1")
-    img2 = st.file_uploader("Ảnh 2:", type=["jpg", "jpeg", "png"], key="img2")
-    img3 = st.file_uploader("Ảnh 3:", type=["jpg", "jpeg", "png"], key="img3")
-
-    student_id = st.text_input("MSSV")
+    mssv = st.text_input("MSSV")
     name = st.text_input("Họ tên")
 
-    if st.button("Lưu dữ liệu mới"):
-        if not student_id or not name:
-            st.error("Nhập đầy đủ MSSV và Họ tên!")
-        elif not img1 or not img2 or not img3:
-            st.error("Upload đủ 3 ảnh!")
+    imgs = [
+        st.file_uploader("Ảnh 1", type=["jpg","png"]),
+        st.file_uploader("Ảnh 2", type=["jpg","png"]),
+        st.file_uploader("Ảnh 3", type=["jpg","png"])
+    ]
+
+    if st.button("Lưu"):
+        if mssv and name and all(imgs):
+            with st.spinner("Đang xử lý..."):
+                ok = face_recog.register(mssv, name, imgs)
+            st.success("Thành công!" if ok else "Thất bại!")
         else:
-            try:
-                # Gọi hàm register với danh sách ảnh
-                uploaded_imgs = [img1, img2, img3]
-                
-                result = face_recog.register(
-                    student_id=student_id,
-                    name=name,
-                    image_files=uploaded_imgs
-                )
-                
-                if result is not None:
-                    st.success(f"Đăng ký dữ liệu khuôn mặt thành công cho {name} (MSSV: {student_id})!")
-                else:
-                    st.error("Không thể đăng ký! Vui lòng kiểm tra lại các ảnh có chứa khuôn mặt rõ ràng không.")
-                    
-            except Exception as e:
-                st.error(f"Lỗi khi đăng ký: {str(e)}")
+            st.error("Điền đủ thông tin!")
