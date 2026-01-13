@@ -43,16 +43,14 @@ def load_pose_detector():
 face_recog = load_face_recog()
 emotion_detector = load_emotion_detector()
 
-# ================= HEADER =================
-st.title("Hệ thống Giám sát – Học & Thi trực tuyến")
+st.title("Hệ thống học - thi online")
 
-# ================= AUTHENTICATION PAGE =================
+# Xác thực
 if ss.page == "auth":
     
-    # Toggle between Auth and Register
     tab1, tab2 = st.tabs(["Xác thực danh tính", "Đăng ký sinh viên mới"])
     
-    # ===== TAB 1: AUTHENTICATION =====
+    # Xác thực
     with tab1:
         st.header("Xác thực danh tính")
         st.info("Chụp ảnh khuôn mặt của bạn để xác thực")
@@ -89,7 +87,7 @@ if ss.page == "auth":
                     st.error(" Không tìm thấy sinh viên phù hợp!")
                     st.warning("Vui lòng thử lại hoặc đăng ký nếu bạn là sinh viên mới.")
     
-    # ===== TAB 2: REGISTRATION =====
+    # Đăng ký
     with tab2:
         st.header("Đăng ký sinh viên mới")
         

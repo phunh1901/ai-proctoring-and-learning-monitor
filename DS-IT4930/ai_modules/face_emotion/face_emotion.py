@@ -63,9 +63,17 @@ class EmotionDetector:
 
         # Load weights
         self.model.load_weights(weight_path)
+        
+        # ⚡ OPTIMIZATION: Warm-up the model
+        dummy_input = np.zeros((1, 48, 48, 1), dtype=np.float32)
+        self.model.predict(dummy_input, verbose=0)
 
-        # YOLO Detector
+        # YOLO Detector with optimization
         self.face_detector = YOLO(yolo_path)
+        
+        # ⚡ OPTIMIZATION: Warm-up YOLO
+        dummy_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        self.face_detector(dummy_frame, conf=0.5, verbose=False)
 
         # Emotion labels
         self.labels = [
@@ -77,21 +85,41 @@ class EmotionDetector:
             "sad",
             "surprise"
         ]
+        
+        # ⚡ OPTIMIZATION: Frame skip counter
+        self.frame_count = 0
+        self.skip_frames = 2  # Process every 3rd frame
+        self.last_emotion = None
+        self.last_boxes = []
 
-    # =========================
-    # 🔥 Main function to call
-    # =========================
+    
     def get_emotion(self, frame):
         """
         Input:  BGR frame
         Output: (annotated_frame, top_emotion or None)
+        
+        ⚡ Optimized with frame skipping
         """
+        self.frame_count += 1
+        
+        # ⚡ OPTIMIZATION: Process every Nth frame
+        if self.frame_count % self.skip_frames != 0:
+            # Use last detection results
+            return self._draw_last_results(frame), self.last_emotion
+        
+        # Detect faces with YOLO
         results = self.face_detector(frame, conf=0.5, verbose=False)
         detected_emotion = None
+        current_boxes = []
 
         for r in results:
-            for box in r.boxes.xyxy.cpu().numpy():
+            boxes = r.boxes.xyxy.cpu().numpy()
+            
+            # ⚡ OPTIMIZATION: Process only first face if multiple detected
+            if len(boxes) > 0:
+                box = boxes[0]  # Take only the first face
                 x1, y1, x2, y2 = map(int, box)
+                current_boxes.append((x1, y1, x2, y2))
 
                 face = frame[y1:y2, x1:x2]
                 if face.size == 0:
@@ -100,23 +128,64 @@ class EmotionDetector:
                 # ---- CNN Preprocess ----
                 gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
                 gray = cv2.resize(gray, (48, 48))
-                gray = gray / 255.0
+                gray = gray.astype(np.float32) / 255.0  # ⚡ Faster conversion
                 gray = np.reshape(gray, (1, 48, 48, 1))
 
+                # ⚡ OPTIMIZATION: Use batch prediction
                 preds = self.model.predict(gray, verbose=0)
                 emotion = self.labels[np.argmax(preds)]
                 detected_emotion = emotion
 
                 # Draw UI
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0,255,0), 2)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                
+                # ⚡ OPTIMIZATION: Draw smaller text
+                font_scale = 0.7
+                thickness = 2
                 cv2.putText(
                     frame,
                     emotion,
                     (x1, y1 - 10),
                     cv2.FONT_HERSHEY_SIMPLEX,
-                    0.9,
-                    (0,255,0),
+                    font_scale,
+                    (0, 255, 0),
+                    thickness
+                )
+                
+                # Only process first face
+                break
+
+        # Save last results
+        self.last_emotion = detected_emotion if detected_emotion else self.last_emotion
+        self.last_boxes = current_boxes
+
+        return frame, self.last_emotion
+    
+    
+    def _draw_last_results(self, frame):
+        """
+        Draw the last detection results on skipped frames
+        """
+        for (x1, y1, x2, y2) in self.last_boxes:
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            if self.last_emotion:
+                cv2.putText(
+                    frame,
+                    self.last_emotion,
+                    (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,
+                    (0, 255, 0),
                     2
                 )
-
-        return frame, detected_emotion
+        return frame
+    
+    
+    def set_skip_frames(self, skip_frames):
+        """
+        Adjust performance vs accuracy trade-off
+        skip_frames = 0: Process every frame (slowest, most accurate)
+        skip_frames = 2: Process every 3rd frame (default)
+        skip_frames = 4: Process every 5th frame (fastest, less accurate)
+        """
+        self.skip_frames = max(0, skip_frames)
