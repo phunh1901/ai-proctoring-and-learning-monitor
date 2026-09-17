@@ -109,14 +109,14 @@ flowchart TD
      - **Roll (Trục Z):** Góc nghiêng đầu sang hai bên.
 - **Cơ chế xử phạt & Nhật ký:**
   - Khi sinh viên lệch hướng khỏi màn hình (`!= Forward`), bộ đếm thời gian được kích hoạt.
-  - Nếu thời gian duy trì tư thế bất thường vượt quá **7 giây** liên tục $\rightarrow$ Hệ thống tính là **1 lần vi phạm**, phát cảnh báo màu trực quan và tự động ghi dòng nhật ký (Timestamp, Trạng thái, Góc xoay, Số lần vi phạm) vào file [exam_pose_log.csv](file:///c:/Users/HP/Desktop/learning/project/HUST/datascience_project/DS-IT4930/logs/exam_pose_log.csv).
+  - Nếu thời gian duy trì tư thế bất thường vượt quá **7 giây** liên tục $\rightarrow$ Hệ thống tính là **1 lần vi phạm**, phát cảnh báo màu trực quan và tự động ghi dòng nhật ký (Timestamp, Trạng thái, Góc xoay, Số lần vi phạm) vào file `logs/exam_pose_log.csv`.
 
 ---
 
 ## 📁 4. Cấu trúc thư mục dự án
 
 ```text
-DS-IT4930/
+ai-proctoring-and-learning-monitor/
 ├── app.py                              # Ứng dụng web Streamlit chính (UI & Điều khiển luồng)
 ├── requirements.txt                    # Danh sách các thư viện phụ thuộc của dự án
 ├── .gitignore                          # Cấu hình bỏ qua các file tạm, cache, môi trường ảo
@@ -163,8 +163,8 @@ DS-IT4930/
 
 **Bước 1: Clone kho lưu trữ về máy**
 ```bash
-git clone https://github.com/phunh1901/DS-IT4930.git
-cd DS-IT4930
+git clone https://github.com/phunh1901/ai-proctoring-and-learning-monitor.git
+cd ai-proctoring-and-learning-monitor
 ```
 
 **Bước 2: Tạo và kích hoạt môi trường ảo (Khuyến nghị)**
@@ -233,10 +233,3 @@ Người dùng có thể dễ dàng tùy biến các tham số hoạt động tr
   ```python
   emotion_detector.set_skip_frames(2) # 0: xử lý mọi frame (chính xác nhất), 2: xử lý mỗi 3 frames (cân bằng)
   ```
-
----
-
-## 👥 8. Tác giả & Đóng góp
-- **Họ và tên:** Phùng Hữu Phú
-- **Khóa / Ngành:** Khoa học Dữ liệu - Đại học Bách Khoa Hà Nội (HUST)
-- **Repository:** [https://github.com/phunh1901/DS-IT4930](https://github.com/phunh1901/DS-IT4930)
