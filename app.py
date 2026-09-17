@@ -5,20 +5,20 @@ import cv2
 import numpy as np
 from datetime import datetime
 
-# ================= SETUP =================
+#  SETUP 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 face_data_dir = os.path.join(current_dir, "ai_modules", "face_verification", "data")
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 # Import models
-from ai_modules.face_verification.Face_Recognition import FaceRecog
-from ai_modules.head_pose_estimation.HPE import HeadPoseDetector
+from ai_modules.face_verification.face_recognition import FaceRecog
+from ai_modules.head_pose_estimation.head_pose_detector import HeadPoseDetector
 from ai_modules.face_emotion.face_emotion import EmotionDetector
 
 st.set_page_config(page_title="Student System", layout="wide")
 
-# ================= SESSION =================
+# SESSION
 ss = st.session_state
 ss.setdefault("exam_verified", False)
 ss.setdefault("mode_selected", None)
@@ -27,7 +27,7 @@ ss.setdefault("student_info", None)
 ss.setdefault("show_register", False)
 ss.setdefault("page", "auth")  # auth, mode_select, learning, exam
 
-# ================= LOAD MODELS =================
+#  LOAD MODELS 
 @st.cache_resource
 def load_face_recog():
     return FaceRecog(data_dir=face_data_dir)
@@ -38,7 +38,8 @@ def load_emotion_detector():
 
 @st.cache_resource
 def load_pose_detector():
-    return HeadPoseDetector(log_file="exam_pose_log.csv")
+    log_path = os.path.join(current_dir, "logs", "exam_pose_log.csv")
+    return HeadPoseDetector(log_file=log_path)
 
 face_recog = load_face_recog()
 emotion_detector = load_emotion_detector()
@@ -102,15 +103,14 @@ if ss.page == "auth":
             
             st.divider()
             st.subheader("Ảnh chân dung (3 ảnh)")
-            st.caption("Lưu ý: Chụp ở nhiều góc độ khác nhau để tăng độ chính xác")
             
             col1, col2, col3 = st.columns(3)
             with col1:
-                img1 = st.file_uploader("Ảnh 1 - Nhìn thẳng", type=["jpg","png","jpeg"], key="reg_img1")
+                img1 = st.file_uploader("Ảnh 1", type=["jpg","png","jpeg"], key="reg_img1")
             with col2:
-                img2 = st.file_uploader("Ảnh 2 - Nghiêng trái", type=["jpg","png","jpeg"], key="reg_img2")
+                img2 = st.file_uploader("Ảnh 2", type=["jpg","png","jpeg"], key="reg_img2")
             with col3:
-                img3 = st.file_uploader("Ảnh 3 - Nghiêng phải", type=["jpg","png","jpeg"], key="reg_img3")
+                img3 = st.file_uploader("Ảnh 3", type=["jpg","png","jpeg"], key="reg_img3")
             
             # Display preview images
             if img1 or img2 or img3:
@@ -138,7 +138,7 @@ if ss.page == "auth":
                             # Check if success is a boolean or other type
                             if success is True or (hasattr(success, '__len__') and len(success) > 0):
                                 st.success("Đăng ký thành công!")
-                                st.balloons()
+                                
                                 st.info("Bạn có thể quay lại tab **Xác thực danh tính** để đăng nhập.")
                             else:
                                 st.error("Đăng ký thất bại! Vui lòng thử lại.")
@@ -148,7 +148,7 @@ if ss.page == "auth":
                             import traceback
                             st.code(traceback.format_exc())
 
-# ================= MODE SELECTION PAGE =================
+#  MODE SELECTION PAGE 
 elif ss.page == "mode_select":
     st.success(f"Xin chào, **{ss.student_info['name']}**")
     
@@ -183,7 +183,7 @@ elif ss.page == "mode_select":
             ss.page = "auth"
             st.rerun()
 
-# ================= LEARNING MODE =================
+# LEARNING MODE
 elif ss.page == "learning":
     st.header("earning Mode - Giám sát học tập")
     
@@ -263,7 +263,7 @@ elif ss.page == "learning":
         else:
             frame_placeholder.info("Nhấn 'Bắt đầu giám sát' để khởi động camera")
 
-# ================= EXAM MODE =================
+# EXAM MODE 
 elif ss.page == "exam":
     st.header("Exam Mode - Giám sát thi cử")
     

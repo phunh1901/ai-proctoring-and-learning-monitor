@@ -24,7 +24,7 @@ class FaceRecog:
         self._db_cache_time = 0
 
     def detect_and_extract_face(self, image):
-        """Phát hiện và cắt khuôn mặt"""
+        # Phát hiện và cắt khuôn mặt
         results = self.detector.detect_faces(image)
         if len(results) == 0:
             return None
@@ -38,7 +38,7 @@ class FaceRecog:
         return face_img
 
     def get_embedding(self, face_image):
-        """Tạo embedding vector từ khuôn mặt"""
+        # Tạo embedding vector từ khuôn mặt
         if face_image is None:
             return None
 
@@ -53,7 +53,7 @@ class FaceRecog:
         return embedding
 
     def calculate_distance(self, emb1, emb2):
-        """Tính khoảng cách Euclidean giữa 2 embeddings"""
+        # Tính khoảng cách Euclidean giữa 2 embeddings
         return np.linalg.norm(emb1 - emb2)
 
     def register(self, student_id, name, image_files):
@@ -125,7 +125,7 @@ class FaceRecog:
         return final_embedding
 
     def _load_database(self):
-        """Load database với caching"""
+        # Load database với caching
         current_time = os.path.getmtime(self.DATA_FILE) if os.path.exists(self.DATA_FILE) else 0
         
         # Nếu cache còn mới, dùng cache
@@ -146,7 +146,6 @@ class FaceRecog:
         return data
 
     def verify_from_frame(self, frame, threshold=50):
-        """Xác thực khuôn mặt từ frame"""
         # Load database
         data = self._load_database()
         if data is None:

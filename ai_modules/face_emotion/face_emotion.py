@@ -64,14 +64,14 @@ class EmotionDetector:
         # Load weights
         self.model.load_weights(weight_path)
         
-        # ⚡ OPTIMIZATION: Warm-up the model
+        # OPTIMIZATION: Warm-up the model
         dummy_input = np.zeros((1, 48, 48, 1), dtype=np.float32)
         self.model.predict(dummy_input, verbose=0)
 
         # YOLO Detector with optimization
         self.face_detector = YOLO(yolo_path)
         
-        # ⚡ OPTIMIZATION: Warm-up YOLO
+        # OPTIMIZATION: Warm-up YOLO
         dummy_frame = np.zeros((480, 640, 3), dtype=np.uint8)
         self.face_detector(dummy_frame, conf=0.5, verbose=False)
 
@@ -86,7 +86,7 @@ class EmotionDetector:
             "surprise"
         ]
         
-        # ⚡ OPTIMIZATION: Frame skip counter
+        # OPTIMIZATION: Frame skip counter
         self.frame_count = 0
         self.skip_frames = 2  # Process every 3rd frame
         self.last_emotion = None
@@ -94,15 +94,9 @@ class EmotionDetector:
 
     
     def get_emotion(self, frame):
-        """
-        Input:  BGR frame
-        Output: (annotated_frame, top_emotion or None)
-        
-        ⚡ Optimized with frame skipping
-        """
         self.frame_count += 1
         
-        # ⚡ OPTIMIZATION: Process every Nth frame
+        # OPTIMIZATION: Process every Nth frame
         if self.frame_count % self.skip_frames != 0:
             # Use last detection results
             return self._draw_last_results(frame), self.last_emotion
@@ -115,7 +109,7 @@ class EmotionDetector:
         for r in results:
             boxes = r.boxes.xyxy.cpu().numpy()
             
-            # ⚡ OPTIMIZATION: Process only first face if multiple detected
+            # OPTIMIZATION: Process only first face if multiple detected
             if len(boxes) > 0:
                 box = boxes[0]  # Take only the first face
                 x1, y1, x2, y2 = map(int, box)
@@ -125,13 +119,13 @@ class EmotionDetector:
                 if face.size == 0:
                     continue
 
-                # ---- CNN Preprocess ----
+                #  CNN Preprocess 
                 gray = cv2.cvtColor(face, cv2.COLOR_BGR2GRAY)
                 gray = cv2.resize(gray, (48, 48))
                 gray = gray.astype(np.float32) / 255.0  # ⚡ Faster conversion
                 gray = np.reshape(gray, (1, 48, 48, 1))
 
-                # ⚡ OPTIMIZATION: Use batch prediction
+                # OPTIMIZATION: Use batch prediction
                 preds = self.model.predict(gray, verbose=0)
                 emotion = self.labels[np.argmax(preds)]
                 detected_emotion = emotion
@@ -139,7 +133,7 @@ class EmotionDetector:
                 # Draw UI
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                 
-                # ⚡ OPTIMIZATION: Draw smaller text
+                # OPTIMIZATION: Draw smaller text
                 font_scale = 0.7
                 thickness = 2
                 cv2.putText(
@@ -163,9 +157,6 @@ class EmotionDetector:
     
     
     def _draw_last_results(self, frame):
-        """
-        Draw the last detection results on skipped frames
-        """
         for (x1, y1, x2, y2) in self.last_boxes:
             cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
             if self.last_emotion:
@@ -182,10 +173,4 @@ class EmotionDetector:
     
     
     def set_skip_frames(self, skip_frames):
-        """
-        Adjust performance vs accuracy trade-off
-        skip_frames = 0: Process every frame (slowest, most accurate)
-        skip_frames = 2: Process every 3rd frame (default)
-        skip_frames = 4: Process every 5th frame (fastest, less accurate)
-        """
         self.skip_frames = max(0, skip_frames)

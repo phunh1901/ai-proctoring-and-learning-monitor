@@ -34,6 +34,9 @@ class HeadPoseDetector:
         self.violation_count = 0
 
     def _init_csv(self):
+        log_dir = os.path.dirname(self.log_file)
+        if log_dir:
+            os.makedirs(log_dir, exist_ok=True)
         if not os.path.exists(self.log_file):
             with open(self.log_file, "w", newline="", encoding="utf-8") as f:
                 writer = csv.writer(f)
